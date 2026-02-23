@@ -12,7 +12,7 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 
 1. **Digitaliza** contratos PDF usando OCR (AWS Textract)
 2. **Extrae** entidades estructuradas del texto (Claude AI)
-3. **Indexa** el contenido en una base de datos vectorial (ChromaDB)
+3. **Indexa** el contenido en una base de datos vectorial (pgvector en Supabase)
 4. **Responde** preguntas en lenguaje natural sobre los contratos (RAG + Claude)
 5. **Visualiza** métricas y alertas en un dashboard interactivo
 
@@ -30,10 +30,10 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 ├──────────────────────┴──────────────────────────────┤
 │                   Backend (FastAPI)                   │
 ├──────────┬───────────┬──────────┬───────────────────┤
-│   AWS S3 │  Textract │  Claude  │    ChromaDB       │
-│ (storage)│   (OCR)   │   (AI)   │   (vectores)      │
+│   AWS S3 │  Textract │  Claude  │                   │
+│ (storage)│   (OCR)   │   (AI)   │                   │
 ├──────────┴───────────┴──────────┴───────────────────┤
-│              Supabase PostgreSQL (DB)                 │
+│        Supabase PostgreSQL + pgvector (DB + vectores)│
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -73,14 +73,14 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 |---|---|
 | **Claude Sonnet (Anthropic API)** | Extracción de entidades de contratos y generación de respuestas RAG |
 | **sentence-transformers** (`paraphrase-multilingual-MiniLM-L12-v2`) | Modelo de embeddings multilingüe (384 dimensiones) |
-| **ChromaDB** | Base de datos vectorial local con persistencia |
+| **pgvector (Supabase)** | Búsqueda vectorial integrada en PostgreSQL |
 | **LangChain Text Splitters** | Chunking de texto (1000 chars, 200 overlap) |
 | **AWS Textract** | OCR asíncrono para extracción de texto de PDFs |
 
 ### Infraestructura y Servicios
 | Servicio | Propósito |
 |---|---|
-| **Supabase** | Autenticación (Auth), base de datos (PostgreSQL), Row Level Security |
+| **Supabase** | Autenticación (Auth), base de datos (PostgreSQL), búsqueda vectorial (pgvector), Row Level Security |
 | **AWS S3** | Almacenamiento de archivos PDF |
 | **AWS Textract** | Servicio de OCR para digitalización de contratos |
 | **Docker** | Containerización para despliegue |
@@ -103,7 +103,7 @@ PDF → S3 Upload → Textract OCR → Texto crudo
             (Supabase DB)        (embeddings 384d)
                                       │
                                       ▼
-                                  ChromaDB
+                                  Supabase pgvector
                                   (vector store)
 ```
 
@@ -115,7 +115,7 @@ Pregunta del usuario
 sentence-transformers (embed query)
         │
         ▼
-ChromaDB similarity search (top 8 chunks)
+pgvector similarity search (top 8 chunks)
         │
         ▼
 Contexto armado con chunks relevantes
@@ -176,6 +176,7 @@ SSE (Server-Sent Events) → Frontend
 | `contract_metadata` | Datos extraídos por IA (25 campos estructurados) |
 | `chat_sessions` | Sesiones de conversación del chat |
 | `chat_messages` | Mensajes (user/assistant) con sources en JSONB |
+| `contract_embeddings` | Embeddings vectoriales para búsqueda semántica (pgvector) |
 | `dashboard_alerts` | Alertas generadas automáticamente |
 
 Todas las tablas tienen **Row Level Security (RLS)** habilitado, garantizando que cada usuario solo accede a sus propios datos.
@@ -214,7 +215,7 @@ ProyectoTEC/
 │   │   │   ├── s3_service.py     # AWS S3 upload/download/delete
 │   │   │   ├── textract_service.py   # OCR async pipeline
 │   │   │   ├── extraction_service.py # Claude entity extraction
-│   │   │   ├── embedding_service.py  # sentence-transformers + ChromaDB
+│   │   │   ├── embedding_service.py  # sentence-transformers + pgvector
 │   │   │   ├── rag_service.py    # RAG query + Claude streaming
 │   │   │   ├── supabase_service.py   # Database CRUD
 │   │   │   └── alert_service.py  # Alert generation
@@ -223,7 +224,8 @@ ProyectoTEC/
 │   ├── pyproject.toml
 │   └── requirements.txt
 ├── database/
-│   └── migration.sql             # Schema SQL para Supabase
+│   ├── migration.sql             # Schema SQL para Supabase
+│   └── migration_pgvector.sql    # Migración de pgvector (embeddings)
 ├── .env.example                  # Template de variables de entorno
 ├── docker-compose.yml            # Orquestación de contenedores
 ├── CLAUDE.md                     # Instrucciones para Claude Code
@@ -290,6 +292,7 @@ cp .env.example .env
 3. **Crear tablas en Supabase**
    - Ir a Supabase Dashboard → SQL Editor
    - Ejecutar `database/migration.sql`
+   - Ejecutar `database/migration_pgvector.sql` (habilita pgvector y crea tabla de embeddings)
 
 4. **Backend**
 ```bash
