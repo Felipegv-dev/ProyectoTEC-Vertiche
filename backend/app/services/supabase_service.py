@@ -21,12 +21,12 @@ class SupabaseService:
         }).execute()
         return result.data[0]
 
-    async def get_contract(self, contract_id: str, user_id: str) -> dict | None:
-        result = self.client.table("contracts").select("*").eq("id", contract_id).eq("user_id", user_id).execute()
+    async def get_contract(self, contract_id: str, user_id: str = None) -> dict | None:
+        result = self.client.table("contracts").select("*").eq("id", contract_id).execute()
         return result.data[0] if result.data else None
 
-    async def list_contracts(self, user_id: str, page: int = 1, page_size: int = 10, search: str | None = None) -> tuple[list[dict], int]:
-        query = self.client.table("contracts").select("*", count="exact").eq("user_id", user_id)
+    async def list_contracts(self, user_id: str = None, page: int = 1, page_size: int = 10, search: str | None = None) -> tuple[list[dict], int]:
+        query = self.client.table("contracts").select("*", count="exact")
 
         if search:
             query = query.ilike("file_name", f"%{search}%")
@@ -44,8 +44,8 @@ class SupabaseService:
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", contract_id).execute()
 
-    async def delete_contract(self, contract_id: str, user_id: str) -> None:
-        self.client.table("contracts").delete().eq("id", contract_id).eq("user_id", user_id).execute()
+    async def delete_contract(self, contract_id: str, user_id: str = None) -> None:
+        self.client.table("contracts").delete().eq("id", contract_id).execute()
         # Also delete related data
         self.client.table("contract_metadata").delete().eq("contract_id", contract_id).execute()
         self.client.table("contract_embeddings").delete().eq("contract_id", contract_id).execute()
@@ -110,9 +110,9 @@ class SupabaseService:
 
     # ---- Dashboard ----
 
-    async def get_dashboard_stats(self, user_id: str) -> dict:
+    async def get_dashboard_stats(self, user_id: str = None) -> dict:
         # Get all contracts with metadata
-        contracts = self.client.table("contracts").select("id, status").eq("user_id", user_id).execute()
+        contracts = self.client.table("contracts").select("id, status").execute()
         metadata = self.client.table("contract_metadata").select("contract_id, renta_mensual, metros_cuadrados, fecha_vencimiento").execute()
 
         total = len(contracts.data)
@@ -144,13 +144,13 @@ class SupabaseService:
             "avg_rent_per_sqm": avg_rent_sqm,
         }
 
-    async def get_expiring_contracts(self, user_id: str, days: int = 180) -> list[dict]:
+    async def get_expiring_contracts(self, user_id: str = None, days: int = 180) -> list[dict]:
         from datetime import timedelta
         now = datetime.now(timezone.utc)
         threshold = (now + timedelta(days=days)).strftime('%Y-%m-%d')
         today = now.strftime('%Y-%m-%d')
 
-        contracts = self.client.table("contracts").select("id, file_name").eq("user_id", user_id).eq("status", "ready").execute()
+        contracts = self.client.table("contracts").select("id, file_name").eq("status", "ready").execute()
         contract_ids = [c['id'] for c in contracts.data]
         contract_map = {c['id']: c['file_name'] for c in contracts.data}
 
@@ -174,8 +174,8 @@ class SupabaseService:
 
         return result
 
-    async def get_alerts(self, user_id: str) -> list[dict]:
-        contracts = self.client.table("contracts").select("id").eq("user_id", user_id).execute()
+    async def get_alerts(self, user_id: str = None) -> list[dict]:
+        contracts = self.client.table("contracts").select("id").execute()
         contract_ids = [c['id'] for c in contracts.data]
 
         if not contract_ids:
@@ -198,8 +198,8 @@ class SupabaseService:
 
         return result.data
 
-    async def get_rent_analytics(self, user_id: str) -> list[dict]:
-        contracts = self.client.table("contracts").select("id").eq("user_id", user_id).eq("status", "ready").execute()
+    async def get_rent_analytics(self, user_id: str = None) -> list[dict]:
+        contracts = self.client.table("contracts").select("id").eq("status", "ready").execute()
         contract_ids = [c['id'] for c in contracts.data]
 
         if not contract_ids:
@@ -231,8 +231,8 @@ class SupabaseService:
 
         return result
 
-    async def get_timeline(self, user_id: str) -> list[dict]:
-        contracts = self.client.table("contracts").select("id, file_name").eq("user_id", user_id).eq("status", "ready").execute()
+    async def get_timeline(self, user_id: str = None) -> list[dict]:
+        contracts = self.client.table("contracts").select("id, file_name").eq("status", "ready").execute()
         contract_ids = [c['id'] for c in contracts.data]
         contract_map = {c['id']: c['file_name'] for c in contracts.data}
 
