@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { contractsApi } from '@/lib/api'
 import { motion } from 'framer-motion'
+import { AddressMap } from './AddressMap'
 
 interface ContractDetailProps {
   contractId: string
@@ -182,13 +183,22 @@ export function ContractDetail({ contractId, onBack }: ContractDetailProps) {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <MetaCard icon={User} label="Arrendador" value={meta.arrendador} />
           <MetaCard icon={Building} label="Arrendatario" value={meta.arrendatario} />
-          <MetaCard
-            icon={MapPin}
-            label="Dirección"
-            value={[meta.direccion, meta.ciudad, meta.estado]
+          {(() => {
+            const fullAddress = [meta.direccion, meta.ciudad, meta.estado]
               .filter(Boolean)
-              .join(', ')}
-          />
+              .join(', ')
+            if (!fullAddress) return null
+            return (
+              <div className="rounded-xl border border-border bg-card p-4 col-span-full">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <MapPin className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase">Dirección</span>
+                </div>
+                <p className="text-sm font-medium text-card-foreground mb-3">{fullAddress}</p>
+                <AddressMap address={fullAddress} />
+              </div>
+            )
+          })()}
           <MetaCard
             icon={Ruler}
             label="Metros cuadrados"

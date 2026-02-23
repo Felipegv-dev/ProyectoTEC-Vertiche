@@ -54,6 +54,7 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 | **Framer Motion** | 11 | Animaciones y transiciones |
 | **React Markdown** | 9 | Renderizado de respuestas del chat |
 | **React Dropzone** | 14 | Upload drag-and-drop de PDFs |
+| **Leaflet + React Leaflet** | 1.9 / 5 | Mapa interactivo en detalle de contrato |
 | **Lucide React** | — | Iconografía |
 
 ### Backend
@@ -141,6 +142,7 @@ SSE (Server-Sent Events) → Frontend
 - Pipeline de procesamiento en background (OCR → Extracción → Embeddings)
 - Polling de estado en tiempo real (pending → processing → ready)
 - Vista previa de PDF embebida en la aplicación
+- Mapa interactivo con geocodificación automática de la dirección del contrato (Leaflet + OpenStreetMap/Nominatim)
 - Extracción automática de 21 campos estructurados por contrato:
   - Partes (arrendador, arrendatario, fiador)
   - Ubicación (dirección, ciudad, estado, código postal, metros cuadrados)
@@ -191,7 +193,7 @@ ProyectoTEC/
 │   │   │   ├── layout/           # Sidebar, Header, AppLayout, ProtectedRoute
 │   │   │   ├── chat/             # ChatWindow, ChatSidebar, ChatMessage, ChatInput, ChatWelcome
 │   │   │   ├── dashboard/        # StatsGrid, ExpirationTimeline, RentChart, AlertsList
-│   │   │   └── documents/        # UploadZone, ContractTable, ContractDetail
+│   │   │   └── documents/        # UploadZone, ContractTable, ContractDetail, AddressMap
 │   │   ├── pages/                # LoginPage, ChatPage, DashboardPage, DocumentsPage
 │   │   ├── hooks/                # useContracts, useChat, useDashboard
 │   │   ├── context/              # AuthContext, ThemeContext

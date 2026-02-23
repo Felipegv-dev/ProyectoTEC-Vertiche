@@ -1,7 +1,7 @@
 import logging
-import chromadb
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from supabase import create_client
 
 from app.config import settings
 
@@ -10,26 +10,19 @@ logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     _model = None
-    _chroma_client = None
-    _collection = None
+    _supabase = None
 
     @classmethod
     def initialize(cls):
-        """Load the embedding model and initialize ChromaDB. Called at startup."""
+        """Load the embedding model and initialize Supabase client. Called at startup."""
         if cls._model is None:
             logger.info("Loading sentence-transformers model...")
             cls._model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
             logger.info("Model loaded successfully")
 
-        if cls._chroma_client is None:
-            cls._chroma_client = chromadb.PersistentClient(
-                path=settings.chroma_persist_directory,
-            )
-            cls._collection = cls._chroma_client.get_or_create_collection(
-                name="contracts",
-                metadata={"hnsw:space": "cosine"},
-            )
-            logger.info(f"ChromaDB initialized at {settings.chroma_persist_directory}")
+        if cls._supabase is None:
+            cls._supabase = create_client(settings.supabase_url, settings.supabase_service_role_key)
+            logger.info("Supabase client initialized for pgvector")
 
     @classmethod
     def get_model(cls) -> SentenceTransformer:
@@ -38,10 +31,10 @@ class EmbeddingService:
         return cls._model
 
     @classmethod
-    def get_collection(cls):
-        if cls._collection is None:
+    def _get_supabase(cls):
+        if cls._supabase is None:
             cls.initialize()
-        return cls._collection
+        return cls._supabase
 
     @staticmethod
     def chunk_text(text: str) -> list[str]:
@@ -55,7 +48,7 @@ class EmbeddingService:
 
     @classmethod
     async def index_contract(cls, contract_id: str, contract_name: str, text: str) -> int:
-        """Chunk text, generate embeddings, and store in ChromaDB."""
+        """Chunk text, generate embeddings, and store in Supabase pgvector."""
         chunks = cls.chunk_text(text)
         if not chunks:
             logger.warning(f"No chunks generated for contract {contract_id}")
@@ -64,70 +57,66 @@ class EmbeddingService:
         model = cls.get_model()
         embeddings = model.encode(chunks).tolist()
 
-        ids = [f"{contract_id}_chunk_{i}" for i in range(len(chunks))]
-        metadatas = [
-            {"contract_id": contract_id, "contract_name": contract_name, "chunk_index": i}
-            for i in range(len(chunks))
+        supabase = cls._get_supabase()
+
+        # Delete existing embeddings for this contract (in case of re-processing)
+        supabase.table("contract_embeddings").delete().eq("contract_id", contract_id).execute()
+
+        # Insert in batches of 50 to avoid payload limits
+        batch_size = 50
+        rows = [
+            {
+                "contract_id": contract_id,
+                "contract_name": contract_name,
+                "chunk_index": i,
+                "content": chunk,
+                "embedding": embedding,
+            }
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
         ]
 
-        collection = cls.get_collection()
-        collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=chunks,
-            metadatas=metadatas,
-        )
+        for start in range(0, len(rows), batch_size):
+            batch = rows[start:start + batch_size]
+            supabase.table("contract_embeddings").insert(batch).execute()
 
         logger.info(f"Indexed {len(chunks)} chunks for contract {contract_id}")
         return len(chunks)
 
     @classmethod
     async def query(cls, query_text: str, n_results: int = 8, contract_ids: list[str] | None = None) -> list[dict]:
-        """Query ChromaDB for relevant chunks."""
+        """Query Supabase pgvector for relevant chunks using cosine similarity."""
         model = cls.get_model()
-        query_embedding = model.encode([query_text]).tolist()
+        query_embedding = model.encode([query_text]).tolist()[0]
 
-        collection = cls.get_collection()
+        supabase = cls._get_supabase()
 
-        where_filter = None
+        params = {
+            "query_embedding": query_embedding,
+            "match_count": n_results,
+        }
         if contract_ids:
-            where_filter = {"contract_id": {"$in": contract_ids}}
+            params["filter_contract_ids"] = contract_ids
 
-        results = collection.query(
-            query_embeddings=query_embedding,
-            n_results=n_results,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
-        )
+        result = supabase.rpc("match_contract_chunks", params).execute()
 
         chunks = []
-        if results and results['documents']:
-            for i, doc in enumerate(results['documents'][0]):
-                meta = results['metadatas'][0][i] if results['metadatas'] else {}
-                distance = results['distances'][0][i] if results['distances'] else 0
-                chunks.append({
-                    "text": doc,
-                    "contract_id": meta.get("contract_id", ""),
-                    "contract_name": meta.get("contract_name", ""),
-                    "chunk_index": meta.get("chunk_index", 0),
-                    "relevance_score": 1 - distance,  # cosine distance to similarity
-                })
+        for row in result.data or []:
+            chunks.append({
+                "text": row["content"],
+                "contract_id": row["contract_id"],
+                "contract_name": row["contract_name"],
+                "chunk_index": row["chunk_index"],
+                "relevance_score": row["similarity"],
+            })
 
         return chunks
 
     @classmethod
     async def delete_contract(cls, contract_id: str) -> None:
-        """Remove all vectors for a contract."""
-        if cls._collection is None:
-            # ChromaDB not initialized yet, nothing to delete
-            return
-        collection = cls._collection
-        results = collection.get(
-            where={"contract_id": contract_id},
-            include=[],
-        )
-        if results and results['ids']:
-            collection.delete(ids=results['ids'])
-            logger.info(f"Deleted {len(results['ids'])} vectors for contract {contract_id}")
+        """Remove all embeddings for a contract from Supabase."""
+        supabase = cls._get_supabase()
+        supabase.table("contract_embeddings").delete().eq("contract_id", contract_id).execute()
+        logger.info(f"Deleted embeddings for contract {contract_id}")
+
 
 embedding_service = EmbeddingService()

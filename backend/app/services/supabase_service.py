@@ -48,6 +48,7 @@ class SupabaseService:
         self.client.table("contracts").delete().eq("id", contract_id).eq("user_id", user_id).execute()
         # Also delete related data
         self.client.table("contract_metadata").delete().eq("contract_id", contract_id).execute()
+        self.client.table("contract_embeddings").delete().eq("contract_id", contract_id).execute()
         self.client.table("dashboard_alerts").delete().eq("contract_id", contract_id).execute()
 
     # ---- Contract Metadata ----

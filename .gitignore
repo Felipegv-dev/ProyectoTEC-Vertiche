@@ -27,7 +27,6 @@ build/
 Thumbs.db
 
 # Data
-chroma_data/
 
 # Logs
 *.log

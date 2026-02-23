@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Initialize services on startup."""
     logger.info("Starting Vertiche API...")
-    # Embedding model will lazy-load on first use
+    # Pre-load embedding model + Supabase pgvector client so first query is fast
+    from app.services.embedding_service import EmbeddingService
+    EmbeddingService.initialize()
+    logger.info("Embedding model and pgvector ready.")
     yield
     logger.info("Shutting down Vertiche API...")
 

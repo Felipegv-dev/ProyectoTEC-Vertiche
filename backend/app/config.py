@@ -17,9 +17,6 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str
 
-    # ChromaDB
-    chroma_persist_directory: str = "./chroma_data"
-
     # App
     environment: str = "development"
 
