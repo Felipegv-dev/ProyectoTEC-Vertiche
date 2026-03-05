@@ -160,6 +160,7 @@ export interface ChatMessage {
 export interface ChatSource {
   contract_id: string
   contract_name: string
+  section: string
   chunk_text: string
   relevance_score: number
 }

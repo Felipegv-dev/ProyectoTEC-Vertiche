@@ -81,6 +81,12 @@ class SupabaseService:
         result = self.client.table("chat_sessions").select("*").eq("id", session_id).eq("user_id", user_id).execute()
         return result.data[0] if result.data else None
 
+    async def update_session_title(self, session_id: str, title: str) -> None:
+        self.client.table("chat_sessions").update({
+            "title": title,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", session_id).execute()
+
     async def delete_chat_session(self, session_id: str, user_id: str) -> None:
         self.client.table("chat_messages").delete().eq("session_id", session_id).execute()
         self.client.table("chat_sessions").delete().eq("id", session_id).eq("user_id", user_id).execute()

@@ -69,6 +69,22 @@ export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
   )
 }
 
+function RelevanceBadge({ score }: { score: number }) {
+  const percentage = Math.round(score * 100)
+  let color = 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+  if (percentage >= 70) {
+    color = 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+  } else if (percentage >= 45) {
+    color = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+  }
+
+  return (
+    <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium', color)}>
+      {percentage}%
+    </span>
+  )
+}
+
 function SourceCitations({ sources }: { sources: ChatSource[] }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -100,9 +116,17 @@ function SourceCitations({ sources }: { sources: ChatSource[] }) {
               key={i}
               className="rounded-lg bg-muted p-2 text-xs"
             >
-              <p className="font-medium text-foreground">
-                {source.contract_name}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-foreground truncate">
+                  {source.contract_name}
+                </p>
+                <RelevanceBadge score={source.relevance_score} />
+              </div>
+              {source.section && source.section !== 'General' && (
+                <p className="mt-0.5 text-[10px] font-medium text-primary/70">
+                  {source.section}
+                </p>
+              )}
               <p className="mt-1 text-muted-foreground line-clamp-3">
                 {source.chunk_text}
               </p>

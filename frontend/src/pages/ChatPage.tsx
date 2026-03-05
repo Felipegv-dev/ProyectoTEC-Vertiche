@@ -10,6 +10,7 @@ export function ChatPage() {
     loading: sessionsLoading,
     createSession,
     deleteSession,
+    updateSessionTitle,
   } = useChatSessions()
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const {
@@ -18,7 +19,7 @@ export function ChatPage() {
     streaming,
     sendMessage,
     stopStreaming,
-  } = useChatMessages(activeSessionId)
+  } = useChatMessages(activeSessionId, updateSessionTitle)
 
   const handleNewSession = useCallback(async () => {
     try {
@@ -45,7 +46,7 @@ export function ChatPage() {
       if (!activeSessionId) {
         try {
           const session = await createSession(
-            content.slice(0, 50),
+            'Nueva conversación',
             []
           )
           setActiveSessionId(session.id)

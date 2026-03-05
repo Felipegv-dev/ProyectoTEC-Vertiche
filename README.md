@@ -13,7 +13,7 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 1. **Digitaliza** contratos PDF usando OCR (AWS Textract)
 2. **Extrae** entidades estructuradas del texto (Claude AI)
 3. **Indexa** el contenido en una base de datos vectorial (pgvector en Supabase)
-4. **Responde** preguntas en lenguaje natural sobre los contratos (RAG + Claude)
+4. **Responde** preguntas en lenguaje natural sobre los contratos (RAG avanzado + Claude)
 5. **Visualiza** métricas y alertas en un dashboard interactivo
 
 ---
@@ -30,8 +30,8 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 ├──────────────────────┴──────────────────────────────┤
 │                   Backend (FastAPI)                   │
 ├──────────┬───────────┬──────────┬───────────────────┤
-│   AWS S3 │  Textract │  Claude  │                   │
-│ (storage)│   (OCR)   │   (AI)   │                   │
+│   AWS S3 │  Textract │  Claude  │  Cross-Encoder    │
+│ (storage)│   (OCR)   │   (AI)   │   (Reranker)      │
 ├──────────┴───────────┴──────────┴───────────────────┤
 │        Supabase PostgreSQL + pgvector (DB + vectores)│
 └─────────────────────────────────────────────────────┘
@@ -42,102 +42,143 @@ Esta plataforma resuelve ese problema mediante un pipeline de IA que:
 ## Stack Tecnológico
 
 ### Frontend
-| Tecnología | Versión | Propósito |
-|---|---|---|
-| **React** | 19 | Framework de UI |
-| **Vite** | 7 | Build tool y dev server |
-| **TypeScript** | 5.7 | Tipado estático |
-| **TailwindCSS** | 4 | Utilidades CSS |
-| **shadcn/ui** | — | Componentes UI (Radix + Tailwind) |
-| **React Router** | 7 | Enrutamiento SPA |
-| **Recharts** | 2 | Gráficas del dashboard |
-| **Framer Motion** | 11 | Animaciones y transiciones |
-| **React Markdown** | 9 | Renderizado de respuestas del chat |
-| **React Dropzone** | 14 | Upload drag-and-drop de PDFs |
+
+
+| Tecnología                  | Versión | Propósito                               |
+| --------------------------- | ------- | --------------------------------------- |
+| **React**                   | 19      | Framework de UI                         |
+| **Vite**                    | 7       | Build tool y dev server                 |
+| **TypeScript**              | 5.7     | Tipado estático                         |
+| **TailwindCSS**             | 4       | Utilidades CSS                          |
+| **shadcn/ui**               | —       | Componentes UI (Radix + Tailwind)       |
+| **React Router**            | 7       | Enrutamiento SPA                        |
+| **Recharts**                | 2       | Gráficas del dashboard                  |
+| **Framer Motion**           | 11      | Animaciones y transiciones              |
+| **React Markdown**          | 9       | Renderizado de respuestas del chat      |
+| **React Dropzone**          | 14      | Upload drag-and-drop de PDFs            |
 | **Leaflet + React Leaflet** | 1.9 / 5 | Mapa interactivo en detalle de contrato |
-| **Lucide React** | — | Iconografía |
+| **Lucide React**            | —       | Iconografía                             |
+
 
 ### Backend
-| Tecnología | Versión | Propósito |
-|---|---|---|
-| **Python** | 3.11+ | Lenguaje del servidor |
-| **FastAPI** | 0.115+ | Framework web async |
-| **Uvicorn** | 0.30+ | Servidor ASGI |
-| **Pydantic** | 2.9+ | Validación de datos y schemas |
-| **Boto3** | 1.35+ | SDK de AWS (S3, Textract) |
-| **PyJWT** | 2.8+ | Verificación de tokens JWT |
-| **HTTPX** | 0.27+ | Cliente HTTP async |
 
-### Inteligencia Artificial
-| Tecnología | Propósito |
-|---|---|
-| **Claude Sonnet (Anthropic API)** | Extracción de entidades de contratos y generación de respuestas RAG |
-| **sentence-transformers** (`paraphrase-multilingual-MiniLM-L12-v2`) | Modelo de embeddings multilingüe (384 dimensiones) |
-| **pgvector (Supabase)** | Búsqueda vectorial integrada en PostgreSQL |
-| **LangChain Text Splitters** | Chunking de texto (1000 chars, 200 overlap) |
-| **AWS Textract** | OCR asíncrono para extracción de texto de PDFs |
+
+| Tecnología   | Versión | Propósito                     |
+| ------------ | ------- | ----------------------------- |
+| **Python**   | 3.11+   | Lenguaje del servidor         |
+| **FastAPI**  | 0.115+  | Framework web async           |
+| **Uvicorn**  | 0.30+   | Servidor ASGI                 |
+| **Pydantic** | 2.9+    | Validación de datos y schemas |
+| **Boto3**    | 1.35+   | SDK de AWS (S3, Textract)     |
+| **PyJWT**    | 2.8+    | Verificación de tokens JWT    |
+| **HTTPX**    | 0.27+   | Cliente HTTP async            |
+
+
+### Inteligencia Artificial y RAG
+
+
+| Tecnología                                                  | Propósito                                                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Claude Sonnet (Anthropic API)**                           | Extracción de entidades de contratos y generación de respuestas RAG                        |
+| **sentence-transformers** (`intfloat/multilingual-e5-base`) | Modelo de embeddings multilingüe optimizado para búsqueda asimétrica (768 dimensiones)     |
+| **Cross-Encoder** (`cross-encoder/ms-marco-MiniLM-L-6-v2`)  | Reranking de resultados para mayor precisión en la selección de fragmentos relevantes      |
+| **pgvector (Supabase)**                                     | Búsqueda vectorial con índice HNSW integrada en PostgreSQL                                 |
+| **LangChain Text Splitters**                                | Chunking semántico de texto (800 chars, 150 overlap) con detección automática de secciones |
+| **AWS Textract**                                            | OCR asíncrono para extracción de texto de PDFs                                             |
+
 
 ### Infraestructura y Servicios
-| Servicio | Propósito |
-|---|---|
-| **Supabase** | Autenticación (Auth), base de datos (PostgreSQL), búsqueda vectorial (pgvector), Row Level Security |
-| **AWS S3** | Almacenamiento de archivos PDF |
-| **AWS Textract** | Servicio de OCR para digitalización de contratos |
-| **Docker** | Containerización para despliegue |
+
+
+| Servicio         | Propósito                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------- |
+| **Supabase**     | Autenticación (Auth), base de datos (PostgreSQL), búsqueda vectorial (pgvector), Row Level Security |
+| **AWS S3**       | Almacenamiento de archivos PDF                                                                      |
+| **AWS Textract** | Servicio de OCR para digitalización de contratos                                                    |
+| **Docker**       | Containerización para despliegue                                                                    |
+
 
 ---
 
 ## Pipeline RAG (Retrieval-Augmented Generation)
 
 ### Fase de Ingesta (al subir un PDF)
+
 ```
 PDF → S3 Upload → Textract OCR → Texto crudo
                                       │
                     ┌─────────────────┤
                     ▼                 ▼
-            Claude Extraction    Text Splitter
-            (JSON estructurado)  (chunks 1000 chars)
+            Claude Extraction    Chunking Semántico
+            (JSON estructurado)  (800 chars + detección de secciones)
                     │                 │
                     ▼                 ▼
-            contract_metadata    sentence-transformers
-            (Supabase DB)        (embeddings 384d)
+            contract_metadata    multilingual-e5-base
+            (Supabase DB)        (embeddings 768d, normalized)
                                       │
                                       ▼
                                   Supabase pgvector
-                                  (vector store)
+                                  (HNSW index + GIN full-text)
 ```
 
 ### Fase de Consulta (al enviar un mensaje en el chat)
+
 ```
 Pregunta del usuario
         │
         ▼
-sentence-transformers (embed query)
+multilingual-e5-base (embed query, prefijo "query:")
         │
         ▼
-pgvector similarity search (top 8 chunks)
+pgvector cosine similarity (top 15 candidatos)
         │
         ▼
-Contexto armado con chunks relevantes
+Hybrid Boost (keyword matching sobre candidatos)
         │
         ▼
-Claude Sonnet (streaming response)
+Cross-Encoder Reranking (ms-marco-MiniLM-L-6-v2)
         │
         ▼
-SSE (Server-Sent Events) → Frontend
+Filtrado por umbral de relevancia (score >= 0.25)
+        │
+        ▼
+Top 5 chunks más relevantes → Contexto con metadata de sección
+        │
+        ▼
+Claude Sonnet (streaming response con citación de secciones)
+        │
+        ▼
+SSE (Server-Sent Events) → Frontend (badges de relevancia + secciones)
 ```
+
+### Mejoras del Pipeline RAG v2
+
+
+| Aspecto                  | v1                                             | v2                                                                                                      |
+| ------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Modelo de embeddings** | `paraphrase-multilingual-MiniLM-L12-v2` (384d) | `intfloat/multilingual-e5-base` (768d) — optimizado para búsqueda asimétrica                            |
+| **Chunking**             | 1000 chars, sin metadata                       | 800 chars + detección automática de secciones (Cláusula, Capítulo, Artículo, etc.)                      |
+| **Retrieval**            | Top 8, solo cosine similarity                  | Pipeline de 4 etapas: vector search → hybrid keyword boost → cross-encoder reranking → threshold filter |
+| **Reranking**            | Ninguno                                        | Cross-encoder (`ms-marco-MiniLM-L-6-v2`) evalúa relevancia real pregunta↔fragmento                      |
+| **Filtrado**             | Sin umbral, devuelve todo                      | Umbral combinado (0.25) elimina resultados irrelevantes                                                 |
+| **Fuentes**              | Primer chunk encontrado por contrato           | Mejor chunk por contrato (mayor score), con sección y badge de relevancia                               |
+| **Full-text search**     | No disponible                                  | Índice GIN con `tsvector` en español para hybrid boost                                                  |
+
 
 ---
 
 ## Módulos de la Aplicación
 
 ### 1. Autenticación
+
 - Login y registro con Supabase Auth
+- Login con Google OAuth
 - Verificación de JWT (ES256) en cada request del backend
 - Row Level Security en todas las tablas de PostgreSQL
 - Contexto de autenticación en React con manejo de sesión automático
 
 ### 2. Gestión Documental
+
 - Upload drag-and-drop de PDFs (hasta 50MB)
 - Pipeline de procesamiento en background (OCR → Extracción → Embeddings)
 - Polling de estado en tiempo real (pending → processing → ready)
@@ -151,14 +192,17 @@ SSE (Server-Sent Events) → Frontend
   - Cláusulas (renovación, penalización, mantenimiento, seguros, uso permitido)
 
 ### 3. Chat Inteligente (RAG)
+
 - Múltiples sesiones de conversación
 - Streaming de respuestas en tiempo real via SSE
 - Renderizado de markdown en respuestas
-- Citación de fuentes con fragmentos del contrato original
+- Citación de fuentes con fragmentos del contrato original, sección detectada y badge de relevancia
 - Sugerencias de preguntas predefinidas
 - Filtrado opcional por contratos específicos
+- Reranking con cross-encoder para mayor precisión en las fuentes mostradas
 
 ### 4. Dashboard Analítico
+
 - **Métricas clave**: total de contratos, contratos activos, por vencer (90 días), renta mensual total
 - **Timeline de vencimientos**: gráfica de barras con contratos por vencer por mes
 - **Renta por estado**: gráfica horizontal con promedio de renta/m² por estado
@@ -170,14 +214,17 @@ SSE (Server-Sent Events) → Frontend
 ## Base de Datos
 
 ### Tablas
-| Tabla | Descripción |
-|---|---|
-| `contracts` | Contratos subidos (archivo, status, s3_key) |
-| `contract_metadata` | Datos extraídos por IA (25 campos estructurados) |
-| `chat_sessions` | Sesiones de conversación del chat |
-| `chat_messages` | Mensajes (user/assistant) con sources en JSONB |
-| `contract_embeddings` | Embeddings vectoriales para búsqueda semántica (pgvector) |
-| `dashboard_alerts` | Alertas generadas automáticamente |
+
+
+| Tabla                 | Descripción                                                                                              |
+| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `contracts`           | Contratos subidos (archivo, status, s3_key)                                                              |
+| `contract_metadata`   | Datos extraídos por IA (25 campos estructurados)                                                         |
+| `chat_sessions`       | Sesiones de conversación del chat                                                                        |
+| `chat_messages`       | Mensajes (user/assistant) con sources en JSONB                                                           |
+| `contract_embeddings` | Embeddings vectoriales (768d) con metadata de sección para búsqueda semántica (pgvector + GIN full-text) |
+| `dashboard_alerts`    | Alertas generadas automáticamente                                                                        |
+
 
 Todas las tablas tienen **Row Level Security (RLS)** habilitado, garantizando que cada usuario solo accede a sus propios datos.
 
@@ -215,17 +262,19 @@ ProyectoTEC/
 │   │   │   ├── s3_service.py     # AWS S3 upload/download/delete
 │   │   │   ├── textract_service.py   # OCR async pipeline
 │   │   │   ├── extraction_service.py # Claude entity extraction
-│   │   │   ├── embedding_service.py  # sentence-transformers + pgvector
-│   │   │   ├── rag_service.py    # RAG query + Claude streaming
+│   │   │   ├── embedding_service.py  # multilingual-e5-base + cross-encoder + pgvector
+│   │   │   ├── rag_service.py    # RAG query pipeline + Claude streaming
 │   │   │   ├── supabase_service.py   # Database CRUD
 │   │   │   └── alert_service.py  # Alert generation
 │   │   └── models/schemas.py     # Pydantic models
+│   ├── reindex_contracts.py      # Script para re-indexar contratos existentes
 │   ├── Dockerfile
 │   ├── pyproject.toml
 │   └── requirements.txt
 ├── database/
 │   ├── migration.sql             # Schema SQL para Supabase
-│   └── migration_pgvector.sql    # Migración de pgvector (embeddings)
+│   ├── migration_pgvector.sql    # Migración de pgvector (embeddings base)
+│   └── migration_rag_v2.sql      # Migración RAG v2 (768d, secciones, full-text)
 ├── .env.example                  # Template de variables de entorno
 ├── docker-compose.yml            # Orquestación de contenedores
 ├── CLAUDE.md                     # Instrucciones para Claude Code
@@ -237,38 +286,48 @@ ProyectoTEC/
 ## API Endpoints
 
 ### Contracts (`/api/contracts`)
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/upload` | Subir PDF → S3 → pipeline en background |
-| `GET` | `/` | Listar contratos (paginación + búsqueda) |
-| `GET` | `/{id}` | Detalle + metadata extraída |
-| `GET` | `/{id}/status` | Status de procesamiento (polling) |
-| `GET` | `/{id}/download-url` | URL presignada de S3 |
-| `DELETE` | `/{id}` | Eliminar contrato + S3 + vectores |
+
+
+| Método   | Ruta                 | Descripción                              |
+| -------- | -------------------- | ---------------------------------------- |
+| `POST`   | `/upload`            | Subir PDF → S3 → pipeline en background  |
+| `GET`    | `/`                  | Listar contratos (paginación + búsqueda) |
+| `GET`    | `/{id}`              | Detalle + metadata extraída              |
+| `GET`    | `/{id}/status`       | Status de procesamiento (polling)        |
+| `GET`    | `/{id}/download-url` | URL presignada de S3                     |
+| `DELETE` | `/{id}`              | Eliminar contrato + S3 + vectores        |
+
 
 ### Chat (`/api/chat`)
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/sessions` | Crear sesión de chat |
-| `GET` | `/sessions` | Listar sesiones |
-| `GET` | `/sessions/{id}` | Historial de mensajes |
-| `POST` | `/sessions/{id}/messages` | Enviar mensaje → SSE streaming |
-| `DELETE` | `/sessions/{id}` | Eliminar sesión |
+
+
+| Método   | Ruta                      | Descripción                                   |
+| -------- | ------------------------- | --------------------------------------------- |
+| `POST`   | `/sessions`               | Crear sesión de chat                          |
+| `GET`    | `/sessions`               | Listar sesiones                               |
+| `GET`    | `/sessions/{id}`          | Historial de mensajes                         |
+| `POST`   | `/sessions/{id}/messages` | Enviar mensaje → RAG pipeline → SSE streaming |
+| `DELETE` | `/sessions/{id}`          | Eliminar sesión                               |
+
 
 ### Dashboard (`/api/dashboard`)
-| Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/stats` | Métricas agregadas |
-| `GET` | `/expiring` | Contratos por vencer |
-| `GET` | `/alerts` | Alertas activas |
-| `GET` | `/rent-analytics` | Renta promedio/m² por estado |
-| `GET` | `/timeline` | Vencimientos por mes |
+
+
+| Método | Ruta              | Descripción                  |
+| ------ | ----------------- | ---------------------------- |
+| `GET`  | `/stats`          | Métricas agregadas           |
+| `GET`  | `/expiring`       | Contratos por vencer         |
+| `GET`  | `/alerts`         | Alertas activas              |
+| `GET`  | `/rent-analytics` | Renta promedio/m² por estado |
+| `GET`  | `/timeline`       | Vencimientos por mes         |
+
 
 ---
 
 ## Instalación y Ejecución
 
 ### Prerrequisitos
+
 - Node.js 20+
 - Python 3.11+
 - Cuenta de Supabase (Auth + PostgreSQL)
@@ -278,23 +337,26 @@ ProyectoTEC/
 ### Setup
 
 1. **Clonar el repositorio**
+
 ```bash
 git clone <repo-url>
 cd ProyectoTEC
 ```
 
-2. **Configurar variables de entorno**
+1. **Configurar variables de entorno**
+
 ```bash
 cp .env.example .env
 # Editar .env con tus credenciales
 ```
 
-3. **Crear tablas en Supabase**
-   - Ir a Supabase Dashboard → SQL Editor
-   - Ejecutar `database/migration.sql`
-   - Ejecutar `database/migration_pgvector.sql` (habilita pgvector y crea tabla de embeddings)
+1. **Crear tablas en Supabase**
+  - Ir a Supabase Dashboard → SQL Editor
+  - Ejecutar `database/migration.sql`
+  - Ejecutar `database/migration_pgvector.sql` (habilita pgvector y crea tabla de embeddings)
+  - Ejecutar `database/migration_rag_v2.sql` (actualiza a 768d, agrega secciones y full-text search)
+2. **Backend**
 
-4. **Backend**
 ```bash
 cd backend
 python -m venv venv
@@ -304,20 +366,32 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-5. **Frontend**
+> La primera ejecución descargará los modelos de IA (~1.2GB total): `intfloat/multilingual-e5-base` (embeddings) y `cross-encoder/ms-marco-MiniLM-L-6-v2` (reranker). Quedan en caché local para ejecuciones posteriores.
+
+1. **Re-indexar contratos existentes** (solo si ya tenías contratos con el modelo anterior)
+
+```bash
+cd backend
+python reindex_contracts.py
+```
+
+1. **Frontend**
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-6. Abrir **http://localhost:5173**
+1. Abrir **[http://localhost:5173](http://localhost:5173)**
 
 ### Con Docker
+
 ```bash
 docker compose up --build
 ```
-La app estará disponible en **http://localhost**.
+
+La app estará disponible en **[http://localhost](http://localhost)**.
 
 ---
 
@@ -329,3 +403,4 @@ La app estará disponible en **http://localhost**.
 - URLs presignadas de S3 con expiración de 1 hora
 - CORS configurado para ambientes de desarrollo y producción
 - Variables sensibles excluidas del repositorio via `.gitignore`
+

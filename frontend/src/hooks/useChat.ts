@@ -36,10 +36,19 @@ export function useChatSessions() {
     setSessions((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
-  return { sessions, loading, refetch: fetch, createSession, deleteSession }
+  const updateSessionTitle = useCallback((id: string, title: string) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, title } : s))
+    )
+  }, [])
+
+  return { sessions, loading, refetch: fetch, createSession, deleteSession, updateSessionTitle }
 }
 
-export function useChatMessages(sessionId: string | null) {
+export function useChatMessages(
+  sessionId: string | null,
+  onTitleUpdate?: (sessionId: string, title: string) => void
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [streaming, setStreaming] = useState(false)
@@ -93,7 +102,7 @@ export function useChatMessages(sessionId: string | null) {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let fullContent = ''
-        let sources: Array<{ contract_id: string; contract_name: string; chunk_text: string; relevance_score: number }> | null = null
+        let sources: Array<{ contract_id: string; contract_name: string; section: string; chunk_text: string; relevance_score: number }> | null = null
 
         while (true) {
           const { done, value } = await reader.read()
@@ -135,8 +144,10 @@ export function useChatMessages(sessionId: string | null) {
                     }
                     return updated
                   })
+                } else if (parsed.type === 'title') {
+                  // Update session title in sidebar
+                  onTitleUpdate?.(sessionId, parsed.title)
                 } else if (parsed.type === 'done') {
-                  // Update with final message ID
                   setMessages((prev) => {
                     const updated = [...prev]
                     const last = updated[updated.length - 1]
@@ -171,7 +182,7 @@ export function useChatMessages(sessionId: string | null) {
         setStreaming(false)
       }
     },
-    [sessionId, streaming]
+    [sessionId, streaming, onTitleUpdate]
   )
 
   const stopStreaming = useCallback(() => {
